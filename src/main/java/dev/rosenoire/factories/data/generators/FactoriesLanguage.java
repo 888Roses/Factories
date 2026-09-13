@@ -25,5 +25,8 @@ public class FactoriesLanguage extends FabricLanguageProvider {
                 AllLang.REDSTONE_RADIO_CHANGE_CHANNEL,
                 "Changed redstone radio channel"
         );
+
+        translationBuilder.add(AllLang.DEBUG_TAGS_TITLE, "§dItem Tags:");
+        translationBuilder.add(AllLang.DEBUG_TAGS_ENTRY, " §8-> §7%s");
     }
 }

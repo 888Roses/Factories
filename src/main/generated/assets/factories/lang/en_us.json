@@ -1,4 +1,6 @@
 {
   "block.factories.redstone_radio": "Redstone Radio",
+  "debugging.factories.tag_entries.entry": " §8-> §7%s",
+  "debugging.factories.tag_entries.title": "§dItem Tags:",
   "subtitle.factories.block.factories.redstone_radio.change_channel": "Changed redstone radio channel"
 }
