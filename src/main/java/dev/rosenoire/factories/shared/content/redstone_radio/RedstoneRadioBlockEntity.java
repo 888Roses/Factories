@@ -1,6 +1,7 @@
 package dev.rosenoire.factories.shared.content.redstone_radio;
 
 import com.mojang.logging.LogUtils;
+import dev.rosenoire.factories.giddy.world.BlockHelper;
 import dev.rosenoire.factories.shared.index.AllBlockEntityTypes;
 import dev.rosenoire.factories.shared.index.AllBlockStateProperties;
 import dev.rosenoire.factories.shared.index.AllLevelComponentKeys;
@@ -13,6 +14,7 @@ import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import org.jspecify.annotations.NonNull;
@@ -92,7 +94,11 @@ public class RedstoneRadioBlockEntity extends BlockEntity {
         var network = level.getComponent(AllLevelComponentKeys.RADIO_NETWORK);
         var pos = this.getBlockPos();
 
-        network.store(pos, this.channel.get(), level.getBestNeighborSignal(pos));
+        var orientation = this.getBlockState().getValue(BlockStateProperties.ORIENTATION);
+        network.store(
+                pos, this.channel.get(),
+                BlockHelper.getBestNeighborSignal(level, pos, orientation.front())
+        );
     }
 
     public void onRemoved() {

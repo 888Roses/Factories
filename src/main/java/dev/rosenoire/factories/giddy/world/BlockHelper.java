@@ -3,6 +3,7 @@ package dev.rosenoire.factories.giddy.world;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.SignalGetter;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.redstone.ExperimentalRedstoneUtils;
@@ -70,5 +71,28 @@ public final class BlockHelper {
                 orientation.front(),
                 redstoneOrientation
         );
+    }
+
+    public static int getBestNeighborSignal(@NonNull SignalGetter getter,
+                                            @NonNull BlockPos pos,
+                                            @NonNull Direction except) {
+        int best = 0;
+
+        for (var direction : Direction.values()) {
+            if (direction == except) {
+                continue;
+            }
+
+            int signal = getter.getSignal(pos.relative(direction), direction);
+            if (signal >= 15) {
+                return 15;
+            }
+
+            if (signal > best) {
+                best = signal;
+            }
+        }
+
+        return best;
     }
 }
