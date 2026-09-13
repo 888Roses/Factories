@@ -1,0 +1,4 @@
+{
+  "block.factories.redstone_radio": "Redstone Radio",
+  "subtitle.factories.block.factories.redstone_radio.change_channel": "Changed redstone radio channel"
+}

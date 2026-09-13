@@ -1,0 +1,11 @@
+{
+  "block.factories.redstone_radio.change_channel": {
+    "sounds": [
+      {
+        "type": "event",
+        "name": "minecraft:entity.villager.work_cartographer"
+      }
+    ],
+    "subtitle": "subtitle.factories.block.factories.redstone_radio.change_channel"
+  }
+}
