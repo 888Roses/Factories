@@ -2,6 +2,9 @@ package dev.rosenoire.factories.giddy.world;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.gizmos.GizmoStyle;
+import net.minecraft.gizmos.Gizmos;
+import net.minecraft.util.ARGB;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.SignalGetter;
 import net.minecraft.world.level.block.Block;
@@ -84,13 +87,7 @@ public final class BlockHelper {
             }
 
             int signal = getter.getSignal(pos.relative(direction), direction);
-            if (signal >= 15) {
-                return 15;
-            }
-
-            if (signal > best) {
-                best = signal;
-            }
+            best = Math.clamp(best, signal, 15);
         }
 
         return best;

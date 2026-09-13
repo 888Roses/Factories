@@ -4,30 +4,30 @@ import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.rosenoire.factories.SharedConstants;
 import dev.rosenoire.factories.shared.index.AllLevelComponentKeys;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import net.minecraft.core.BlockPos;
+import net.minecraft.gizmos.GizmoStyle;
+import net.minecraft.gizmos.Gizmos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
 import org.jspecify.annotations.NonNull;
 import org.ladysnake.cca.api.v3.component.ComponentV3;
 import org.ladysnake.cca.api.v3.component.sync.AutoSyncedComponent;
+import org.ladysnake.cca.api.v3.component.tick.ServerTickingComponent;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Predicate;
 
 @SuppressWarnings("UnstableApiUsage")
-public class RadioNetwork implements ComponentV3, AutoSyncedComponent {
-    private static final Codec<Object2IntOpenHashMap<Channel>> SIGNALS_CODEC = Codec
-            .unboundedMap(Channel.CODEC, Codec.INT)
-            .xmap(
-                    Object2IntOpenHashMap::new,
-                    signals -> signals
-            );
+public class RadioNetwork implements ComponentV3, AutoSyncedComponent, ServerTickingComponent {
+    private static final Codec<List<Signal>> SIGNALS_CODEC = Signal.CODEC.listOf();
     private static final String SIGNALS_KEY = "signals";
 
     private final @NonNull Level level;
-    private final @NonNull Object2IntOpenHashMap<Channel> signals
-            = new Object2IntOpenHashMap<>();
+    private final @NonNull List<Signal> signals = new ArrayList<>();
+
+    private int lazyTickCounter = 0;
 
     public RadioNetwork(@NonNull Level level) {
         this.level = level;
@@ -40,7 +40,7 @@ public class RadioNetwork implements ComponentV3, AutoSyncedComponent {
     @Override
     public void readData(@NonNull ValueInput readView) {
         this.signals.clear();
-        readView.read(SIGNALS_KEY, SIGNALS_CODEC).ifPresent(this.signals::putAll);
+        readView.read(SIGNALS_KEY, SIGNALS_CODEC).ifPresent(this.signals::addAll);
     }
 
     @Override
@@ -53,8 +53,9 @@ public class RadioNetwork implements ComponentV3, AutoSyncedComponent {
     }
 
     public void store(@NonNull BlockPos pos, @NonNull String name, int signal) {
-        var channel = new Channel(name, pos.asLong());
-        this.signals.put(channel, signal);
+        var positionNode = pos.asLong();
+        this.signals.removeIf(s -> s.position == positionNode);
+        this.signals.add(new Signal(name, positionNode, signal));
         this.synchronise();
     }
 
@@ -62,9 +63,7 @@ public class RadioNetwork implements ComponentV3, AutoSyncedComponent {
         var maxDistance = SharedConstants.MAX_RADIO_DISTANCE * SharedConstants.MAX_RADIO_DISTANCE;
         var signal = 0;
 
-        for (var entry : signals.object2IntEntrySet()) {
-            var channel = entry.getKey();
-
+        for (var channel : signals) {
             if (!channelFilter.test(channel.name())) {
                 continue;
             }
@@ -75,21 +74,36 @@ public class RadioNetwork implements ComponentV3, AutoSyncedComponent {
                 continue;
             }
 
-            var entrySignal = entry.getIntValue();
-            signal = Math.max(signal, entrySignal);
+            signal = Math.max(signal, channel.signal());
         }
 
         return signal;
     }
 
-    public record Channel(@NonNull String name, @NonNull Long position) {
-        public static final Codec<Channel> CODEC = RecordCodecBuilder
+    @Override
+    public void serverTick() {
+        if (this.lazyTickCounter < 2) {
+            this.lazyTickCounter++;
+            return;
+        }
+
+        this.lazyTickCounter = 0;
+
+        this.signals.removeIf(signal -> !this.level
+                .getBlockState(BlockPos.of(signal.position))
+                .hasBlockEntity()
+        );
+    }
+
+    public record Signal(@NonNull String name, @NonNull Long position, int signal) {
+        public static final Codec<Signal> CODEC = RecordCodecBuilder
                 .create(i -> i
                         .group(
-                                Codec.STRING.fieldOf("name").forGetter(Channel::name),
-                                Codec.LONG.fieldOf("position").forGetter(Channel::position)
+                                Codec.STRING.fieldOf("name").forGetter(Signal::name),
+                                Codec.LONG.fieldOf("position").forGetter(Signal::position),
+                                Codec.INT.fieldOf("signal").forGetter(Signal::signal)
                         )
-                        .apply(i, Channel::new)
+                        .apply(i, Signal::new)
                 );
     }
 }

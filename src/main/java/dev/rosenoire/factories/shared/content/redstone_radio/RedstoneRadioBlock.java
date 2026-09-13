@@ -2,6 +2,7 @@ package dev.rosenoire.factories.shared.content.redstone_radio;
 
 import com.mojang.math.OctahedralGroup;
 import com.mojang.serialization.MapCodec;
+import dev.rosenoire.factories.SharedConstants;
 import dev.rosenoire.factories.giddy.world.BlockHelper;
 import dev.rosenoire.factories.giddy.world.OrientationPlacementType;
 import dev.rosenoire.factories.giddy.world.ShapeHelper;
@@ -77,10 +78,6 @@ public class RedstoneRadioBlock extends BaseEntityBlock {
         return SHAPE.get(state.getValue(ORIENTATION));
     }
 
-    protected int getDelay(@NonNull BlockState state) {
-        return 4;
-    }
-
     @Override
     protected void createBlockStateDefinition(StateDefinition.@NonNull Builder<Block, BlockState> builder) {
         super.createBlockStateDefinition(builder);
@@ -131,9 +128,7 @@ public class RedstoneRadioBlock extends BaseEntityBlock {
         return 0;
     }
 
-    protected boolean shouldTurnOn(@NonNull Level level,
-                                   @NonNull BlockPos pos,
-                                   @NonNull BlockState state) {
+    protected boolean shouldTurnOn(@NonNull Level level, @NonNull BlockPos pos) {
         for (var direction : Direction.values()) {
             if (level.getSignal(pos.relative(direction), direction) > 0) {
                 return true;
@@ -156,7 +151,10 @@ public class RedstoneRadioBlock extends BaseEntityBlock {
         }
 
         var blockEntity = state.hasBlockEntity() ? level.getBlockEntity(pos) : null;
-        if (blockEntity instanceof RedstoneRadioBlockEntity radio) radio.onRemoved();
+        if (blockEntity instanceof RedstoneRadioBlockEntity radio) {
+            radio.updateSignal();
+        }
+
         dropResources(state, level, pos, blockEntity);
         level.removeBlock(pos, false);
 
@@ -169,11 +167,11 @@ public class RedstoneRadioBlock extends BaseEntityBlock {
                                        @NonNull BlockPos pos,
                                        @NonNull BlockState state) {
         var on = state.getValue(POWERED);
-        var shouldTurnOn = this.shouldTurnOn(level, pos, state);
+        var shouldTurnOn = this.shouldTurnOn(level, pos);
 
         if (on != shouldTurnOn) {
             level.setBlock(pos, state.setValue(POWERED, shouldTurnOn), UPDATE_CLIENTS);
-            level.scheduleTick(pos, this, this.getDelay(state));
+            level.scheduleTick(pos, this, SharedConstants.RADIO_DELAY);
         }
 
         if (state.hasBlockEntity() && level.getBlockEntity(pos) instanceof RedstoneRadioBlockEntity radio) {
@@ -192,7 +190,7 @@ public class RedstoneRadioBlock extends BaseEntityBlock {
                             @NonNull BlockState state,
                             @Nullable LivingEntity by,
                             @NonNull ItemStack itemStack) {
-        if (!this.shouldTurnOn(level, pos, state)) {
+        if (!this.shouldTurnOn(level, pos)) {
             return;
         }
 
@@ -205,7 +203,15 @@ public class RedstoneRadioBlock extends BaseEntityBlock {
                            @NonNull BlockPos pos,
                            @NonNull BlockState oldState,
                            boolean movedByPiston) {
-        BlockHelper.updateNeighborsInFrontOfBlockWithOrientation(this, level, pos, state);
+        if (this.shouldTurnOn(level, pos)) {
+            if (level.getBlockEntity(pos) instanceof RedstoneRadioBlockEntity radio) {
+                radio.updateSignal();
+            }
+        }
+
+        BlockHelper.updateNeighborsInFrontOfBlockWithOrientation(
+                this, level, pos, state
+        );
         level.scheduleTick(pos, this, 1);
     }
 
@@ -218,7 +224,9 @@ public class RedstoneRadioBlock extends BaseEntityBlock {
             return;
         }
 
-        BlockHelper.updateNeighborsInFrontOfBlockWithOrientation(this, level, pos, state);
+        BlockHelper.updateNeighborsInFrontOfBlockWithOrientation(
+                this, level, pos, state
+        );
     }
 
     @Override
@@ -240,7 +248,7 @@ public class RedstoneRadioBlock extends BaseEntityBlock {
             if (customName == null) return InteractionResult.FAIL;
             var channelName = customName.getString();
 
-            if (state.hasBlockEntity() && level.getBlockEntity(pos) instanceof RedstoneRadioBlockEntity radio) {
+            if (level.getBlockEntity(pos) instanceof RedstoneRadioBlockEntity radio) {
                 var currentChannelName = radio.getChannel().orElse("");
                 if (currentChannelName.equals(channelName)) return InteractionResult.PASS;
                 radio.setChannel(channelName);
@@ -265,12 +273,10 @@ public class RedstoneRadioBlock extends BaseEntityBlock {
                         @NonNull ServerLevel level,
                         @NonNull BlockPos pos,
                         @NonNull RandomSource random) {
-        if (state.hasBlockEntity() && level.getBlockEntity(pos) instanceof RedstoneRadioBlockEntity radio) {
+        if (state.hasBlockEntity()) {
             level.updateNeighborsAt(pos, this);
         }
 
-        // This is to make sure that the block updates when a potential emitter sends a
-        // redstone signal. Otherwise, we can't know that for sure.
-        level.scheduleTick(pos, this, this.getDelay(state), TickPriority.VERY_HIGH);
+        level.scheduleTick(pos, this, SharedConstants.RADIO_DELAY, TickPriority.VERY_HIGH);
     }
 }
